@@ -1,0 +1,81 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if user is a member of the house
+    function isMember(houseId) {
+      return exists(/databases/$(database)/documents/houseMembers/$(houseId + '_' + request.auth.uid));
+    }
+
+    // Helper: get member role
+    function getMemberRole(houseId) {
+      return get(/databases/$(database)/documents/houseMembers/$(houseId + '_' + request.auth.uid)).data.role;
+    }
+
+    // Helper: check if user can write (owner or editor)
+    function canWrite(houseId) {
+      let role = getMemberRole(houseId);
+      return role == 'owner' || role == 'editor';
+    }
+
+    // Allowed users: authenticated can read their own, no client writes (admin SDK only)
+    match /allowedUsers/{email} {
+      allow read: if request.auth != null;
+    }
+
+    // Helper: check if user is allowed
+    function isAllowedUser() {
+      return exists(/databases/$(database)/documents/allowedUsers/$(request.auth.token.email));
+    }
+
+    // Users: only owner can read/write their own doc, must be allowed
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid && isAllowedUser();
+    }
+
+    // Houses: members can read, owner/editor can write, no deletes
+    match /houses/{houseId} {
+      allow read: if request.auth != null && isMember(houseId);
+      allow create: if request.auth != null && isAllowedUser();
+      allow update: if request.auth != null && canWrite(houseId);
+    }
+
+    // HouseMembers: members can read members of their house
+    match /houseMembers/{memberId} {
+      allow read: if request.auth != null && (
+        isMember(resource.data.houseId) ||
+        request.auth.uid == resource.data.userId
+      );
+      allow create: if request.auth != null && isAllowedUser();
+      allow update: if request.auth != null && canWrite(resource.data.houseId);
+    }
+
+    // Rooms: members can read, owner/editor can write
+    match /rooms/{roomId} {
+      allow read: if request.auth != null && isMember(resource.data.houseId);
+      allow create: if request.auth != null && canWrite(request.resource.data.houseId);
+      allow update: if request.auth != null && canWrite(resource.data.houseId);
+    }
+
+    // Seasons: members can read, owner/editor can write, no deletes
+    match /seasons/{seasonId} {
+      allow read: if request.auth != null && isMember(resource.data.houseId);
+      allow create: if request.auth != null && canWrite(request.resource.data.houseId);
+      allow update: if request.auth != null && canWrite(resource.data.houseId);
+    }
+
+    // Tasks: members can read, owner/editor can write
+    match /tasks/{taskId} {
+      allow read: if request.auth != null && isMember(resource.data.houseId);
+      allow create: if request.auth != null && canWrite(request.resource.data.houseId);
+      allow update: if request.auth != null && canWrite(resource.data.houseId);
+    }
+
+    // Invites: allowed users can read/create/update (for redeeming)
+    match /invites/{inviteId} {
+      allow read: if request.auth != null && isAllowedUser();
+      allow create: if request.auth != null && isAllowedUser();
+      allow update: if request.auth != null && isAllowedUser();
+    }
+  }
+}
