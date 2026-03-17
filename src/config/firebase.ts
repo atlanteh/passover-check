@@ -24,6 +24,6 @@ export const db = initializeFirestore(app, {
   }),
 }, 'passover')
 
-export const functions = getFunctions(app)
+export const functions = getFunctions(app, 'europe-west1')
 
 export default app

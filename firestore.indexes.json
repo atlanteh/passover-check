@@ -1,13 +1,6 @@
 {
   "indexes": [
     {
-      "collectionGroup": "houseMembers",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "userId", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "rooms",
       "queryScope": "COLLECTION",
       "fields": [

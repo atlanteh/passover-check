@@ -9,7 +9,7 @@ initializeApp()
 const db = getFirestore('passover')
 
 export const passoverGenerateTasks = onCall(
-  { region: 'us-central1', memory: '512MiB' },
+  { region: 'europe-west1', memory: '512MiB' },
   async (request) => {
     // Auth check
     if (!request.auth) {

@@ -40,7 +40,7 @@ function guessIcon(roomName: string): string {
 export async function generateTasksFromDescription(description: string): Promise<GeneratedRoom[]> {
   const vertexAI = new VertexAI({
     project: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'passover',
-    location: 'us-central1',
+    location: 'europe-west1',
   })
 
   const model = vertexAI.getGenerativeModel({
