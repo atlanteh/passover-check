@@ -1,11 +1,14 @@
 {
   "name": "passover-check",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.0.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
+    "build:functions": "cd functions && pnpm run build",
+    "stamp-version": "STAMP=$(date +%s) && echo $STAMP > dist/version.txt && sed -i \"s/{{version}}/$STAMP/g\" dist/index.html",
+    "ship": "pnpm run build && pnpm run stamp-version && pnpm run build:functions && firebase deploy",
     "preview": "vite preview",
     "lint": "eslint ."
   },
