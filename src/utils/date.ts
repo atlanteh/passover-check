@@ -38,3 +38,38 @@ export function formatDateLong(date: Date): string {
     year: 'numeric',
   })
 }
+
+export function formatHebrewDate(date: Date): string {
+  return new Intl.DateTimeFormat('he-u-ca-hebrew', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(date)
+}
+
+export function formatHebrewDateShort(date: Date): string {
+  return new Intl.DateTimeFormat('he-u-ca-hebrew', {
+    day: 'numeric',
+    month: 'long',
+  }).format(date)
+}
+
+export function isBeforeToday(dateStr: string): boolean {
+  const today = toDateString(startOfDay(new Date()))
+  return dateStr < today
+}
+
+export function generateDateRange(from: Date, to: Date): string[] {
+  const dates: string[] = []
+  const current = startOfDay(from)
+  const end = startOfDay(to)
+  while (current <= end) {
+    dates.push(toDateString(current))
+    current.setDate(current.getDate() + 1)
+  }
+  return dates
+}
+
+export function formatDayOfWeek(date: Date): string {
+  return date.toLocaleDateString('he-IL', { weekday: 'long' })
+}

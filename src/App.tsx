@@ -10,6 +10,7 @@ import TodayPage from './pages/TodayPage'
 import FocusPage from './pages/FocusPage'
 import TasksPage from './pages/TasksPage'
 import TaskAddPage from './pages/TaskAddPage'
+import TaskEditPage from './pages/TaskEditPage'
 import RoomsPage from './pages/RoomsPage'
 import SeasonsPage from './pages/SeasonsPage'
 import SeasonCreatePage from './pages/SeasonCreatePage'
@@ -19,6 +20,7 @@ import JoinHousePage from './pages/JoinHousePage'
 import InvitePage from './pages/InvitePage'
 import AIWizardPage from './pages/AIWizardPage'
 import SettingsPage from './pages/SettingsPage'
+import SchedulePage from './pages/SchedulePage'
 import { Loader2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
@@ -121,9 +123,11 @@ function AppRoutes() {
         <Route path="focus" element={<FocusPage />} />
         <Route path="tasks" element={<TasksPage />} />
         <Route path="tasks/new" element={<TaskAddPage />} />
+        <Route path="tasks/:taskId/edit" element={<TaskEditPage />} />
         <Route path="rooms" element={<RoomsPage />} />
         <Route path="seasons" element={<SeasonsPage />} />
         <Route path="seasons/new" element={<SeasonCreatePage />} />
+        <Route path="schedule" element={<SchedulePage />} />
         <Route path="ai" element={<AIWizardPage />} />
         <Route path="invite" element={<InvitePage />} />
         <Route path="settings" element={<SettingsPage />} />

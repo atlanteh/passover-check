@@ -17,6 +17,7 @@ export interface House {
   emoji: string
   createdBy: string
   isArchived: boolean
+  assignees?: string[]
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -39,6 +40,7 @@ export interface Room {
   icon: string
   order: number
   isActive: boolean
+  minDate?: string // YYYY-MM-DD — don't schedule tasks before this date
   createdAt: Timestamp
   updatedAt: Timestamp
 }
@@ -74,12 +76,14 @@ export interface Task {
   priority: TaskPriority
   dueAt?: Timestamp
   scheduledDate?: string // YYYY-MM-DD for client scheduling
+  assignedTo?: string
   assignedToUserId?: string
   completedByUserId?: string
   completedAt?: Timestamp
   createdAt: Timestamp
   updatedAt: Timestamp
   source: TaskSource
+  checklist?: ChecklistItem[]
 }
 
 export interface Invite {
@@ -104,6 +108,7 @@ export interface HouseFormData {
 export interface RoomFormData {
   name: string
   icon: string
+  minDate?: string // YYYY-MM-DD — don't schedule tasks before this date
 }
 
 export interface SeasonFormData {
@@ -122,6 +127,13 @@ export interface TaskFormData {
   dueAt: string
 }
 
+// ── Checklist ──
+
+export interface ChecklistItem {
+  label: string
+  done: boolean
+}
+
 // ── AI types ──
 
 export interface AIGeneratedRoom {
@@ -136,6 +148,7 @@ export interface AIGeneratedTask {
   estimatedMinutes: number
   priority: TaskPriority
   required: boolean
+  checklist?: string[]
 }
 
 // ── Scheduling ──
@@ -144,6 +157,7 @@ export interface ScheduledDay {
   date: string // YYYY-MM-DD
   tasks: Task[]
   totalMinutes: number
+  isPassoverEve?: boolean
 }
 
 export interface DashboardStats {

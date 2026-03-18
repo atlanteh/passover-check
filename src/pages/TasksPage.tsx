@@ -10,10 +10,26 @@ import { Plus, Filter, Loader2 } from 'lucide-react'
 export default function TasksPage() {
   const { selectedHouse } = useHouse()
   const { activeSeason } = useSeason()
-  const { tasks, loading } = useTasks(activeSeason?.id)
+  const { tasks, loading } = useTasks(activeSeason?.id, selectedHouse?.id)
   const { rooms } = useRooms(selectedHouse?.id)
-  const [filterRoom, setFilterRoom] = useState<string>('all')
-  const [filterStatus, setFilterStatus] = useState<string>('all')
+  const [filterRoom, setFilterRoom] = useState<string>(() => sessionStorage.getItem('tasks-filter-room') ?? 'all')
+  const [filterAssignee, setFilterAssignee] = useState<string>(() => sessionStorage.getItem('tasks-filter-assignee') ?? 'all')
+  const [filterStatus, setFilterStatus] = useState<string>(() => sessionStorage.getItem('tasks-filter-status') ?? 'all')
+
+  function handleFilterRoom(value: string) {
+    setFilterRoom(value)
+    sessionStorage.setItem('tasks-filter-room', value)
+  }
+
+  function handleFilterAssignee(value: string) {
+    setFilterAssignee(value)
+    sessionStorage.setItem('tasks-filter-assignee', value)
+  }
+
+  function handleFilterStatus(value: string) {
+    setFilterStatus(value)
+    sessionStorage.setItem('tasks-filter-status', value)
+  }
 
   if (loading) {
     return (
@@ -33,6 +49,13 @@ export default function TasksPage() {
 
   const filtered = tasks.filter((t) => {
     if (filterRoom !== 'all' && t.roomId !== filterRoom) return false
+    if (filterAssignee !== 'all') {
+      if (filterAssignee === '_unassigned') {
+        if (t.assignedTo) return false
+      } else if (t.assignedTo !== filterAssignee) {
+        return false
+      }
+    }
     if (filterStatus !== 'all' && t.status !== filterStatus) return false
     return true
   })
@@ -64,7 +87,7 @@ export default function TasksPage() {
           <Filter size={14} className="text-on-surface-muted" />
           <select
             value={filterRoom}
-            onChange={(e) => setFilterRoom(e.target.value)}
+            onChange={(e) => handleFilterRoom(e.target.value)}
             className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm flex-1"
           >
             <option value="all">כל החדרים</option>
@@ -72,6 +95,19 @@ export default function TasksPage() {
               <option key={r.id} value={r.id}>{r.name}</option>
             ))}
           </select>
+          {selectedHouse?.assignees && selectedHouse.assignees.length > 0 && (
+            <select
+              value={filterAssignee}
+              onChange={(e) => handleFilterAssignee(e.target.value)}
+              className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm flex-1"
+            >
+              <option value="all">כולם</option>
+              <option value="_unassigned">ללא משויך</option>
+              {selectedHouse.assignees.map((name) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
+          )}
         </div>
 
         <div className="flex gap-2 overflow-x-auto hide-scrollbar">
@@ -86,7 +122,7 @@ export default function TasksPage() {
             return (
               <button
                 key={status}
-                onClick={() => setFilterStatus(status)}
+                onClick={() => handleFilterStatus(status)}
                 className={`whitespace-nowrap px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
                   filterStatus === status
                     ? 'bg-primary-600 text-white'

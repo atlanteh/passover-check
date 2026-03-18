@@ -1,25 +1,36 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
 import { useHouse } from '../context/HouseContext'
 import { useTasks } from '../hooks/useTasks'
 import { useRooms } from '../hooks/useRooms'
-import { scheduleTasks } from '../utils/scheduling'
 import { toDateString, startOfDay } from '../utils/date'
 import { completeTask, skipTask } from '../services/taskService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { Target, CheckCircle2, SkipForward, Loader2, PartyPopper } from 'lucide-react'
+import { Target, CheckCircle2, SkipForward, Loader2, PartyPopper, CalendarRange } from 'lucide-react'
 import { ROOM_ICONS, PRIORITY_LABELS } from '../types'
 
 export default function FocusPage() {
   const { user } = useAuth()
   const { selectedHouse } = useHouse()
   const { activeSeason } = useSeason()
-  const { tasks, loading } = useTasks(activeSeason?.id)
+  const { tasks, loading } = useTasks(activeSeason?.id, selectedHouse?.id)
   const { rooms } = useRooms(selectedHouse?.id)
   const { toast } = useToast()
   const [completing, setCompleting] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
+
+  const todayStr = toDateString(startOfDay(new Date()))
+
+  const { pendingTasks, hasAnyScheduled } = useMemo(() => {
+    const todayTasks = tasks.filter((t) => t.scheduledDate === todayStr)
+    const pending = todayTasks.filter(
+      (t) => t.status === 'pending' || t.status === 'in_progress'
+    )
+    const anyScheduled = tasks.some((t) => t.scheduledDate)
+    return { pendingTasks: pending, hasAnyScheduled: anyScheduled }
+  }, [tasks, todayStr])
 
   if (loading) {
     return (
@@ -38,12 +49,21 @@ export default function FocusPage() {
     )
   }
 
-  const schedule = scheduleTasks(tasks, activeSeason)
-  const todayStr = toDateString(startOfDay(new Date()))
-  const todaySchedule = schedule.find((d) => d.date === todayStr)
-  const pendingTasks = (todaySchedule?.tasks ?? []).filter(
-    (t) => t.status === 'pending' || t.status === 'in_progress'
-  )
+  if (!hasAnyScheduled && tasks.length > 0) {
+    return (
+      <div className="text-center py-20">
+        <CalendarRange size={48} className="mx-auto text-on-surface-muted mb-3" />
+        <h3 className="text-lg font-semibold mb-1">לא שובצו משימות</h3>
+        <p className="text-on-surface-muted mb-4">לכו ללו״ז לשיבוץ משימות</p>
+        <Link
+          to="/schedule"
+          className="bg-primary-600 text-white px-6 py-3 rounded-xl font-medium inline-block"
+        >
+          ללו״ז
+        </Link>
+      </div>
+    )
+  }
 
   const currentTask = pendingTasks[0] as typeof pendingTasks[number] | undefined
 
@@ -53,7 +73,7 @@ export default function FocusPage() {
       <div className="text-center py-20 animate-bounce-in">
         <PartyPopper size={64} className="mx-auto text-primary-500 mb-4" />
         <h2 className="text-2xl font-bold mb-2">
-          {justCompleted ? 'כל הכבוד! 🎉' : 'סיימת להיום!'}
+          {justCompleted ? 'כל הכבוד!' : 'סיימת להיום!'}
         </h2>
         <p className="text-on-surface-muted">
           {allDone ? 'אין עוד משימות להיום, מגיע לך הפסקה' : 'משימה הושלמה בהצלחה!'}

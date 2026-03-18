@@ -6,6 +6,7 @@ interface GeneratedTask {
   estimatedMinutes: number
   priority: 'low' | 'medium' | 'high'
   required: boolean
+  checklist?: string[]
 }
 
 interface GeneratedRoom {
@@ -37,25 +38,31 @@ function guessIcon(roomName: string): string {
   return 'other'
 }
 
-export async function generateTasksFromDescription(description: string): Promise<GeneratedRoom[]> {
+export async function generateTasksFromDescription(description: string, existingRooms?: string[]): Promise<GeneratedRoom[]> {
+  const project = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'passover'
   const vertexAI = new VertexAI({
-    project: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'passover',
-    location: 'europe-west1',
+    project,
+    location: 'global',
+    apiEndpoint: 'aiplatform.googleapis.com',
   })
 
   const model = vertexAI.getGenerativeModel({
-    model: 'gemini-2.5-flash-preview-05-20',
+    model: 'gemini-3.1-flash-lite-preview',
     generationConfig: {
       responseMimeType: 'application/json',
       temperature: 0.7,
     },
   })
 
-  const prompt = `אתה מומחה ניקיון לפסח. בהינתן תיאור של בית, צור רשימת חדרים ומשימות ניקיון לפסח.
+  const existingRoomsSection = existingRooms?.length
+    ? `\nחדרים קיימים במערכת (השתמש בשמות זהים בדיוק כדי להוסיף משימות לחדרים קיימים):\n${existingRooms.map((r) => `- ${r}`).join('\n')}\n`
+    : ''
 
-תיאור הבית:
+  const prompt = `אתה עוזר לארגן ניקיון פסח. המשתמש מתאר את החדרים והמשימות שהוא רוצה לבצע. תפקידך לארגן את מה שהוא כתב לפורמט מובנה — בלי להמציא חדרים או משימות שלא הוזכרו.
+
+תיאור מהמשתמש:
 ${description}
-
+${existingRoomsSection}
 צור תשובה בפורמט JSON הבא:
 {
   "rooms": [
@@ -67,7 +74,8 @@ ${description}
           "description": "תיאור קצר בעברית",
           "estimatedMinutes": 15,
           "priority": "high" | "medium" | "low",
-          "required": true | false
+          "required": true | false,
+          "checklist": ["פריט 1", "פריט 2"]
         }
       ]
     }
@@ -75,14 +83,13 @@ ${description}
 }
 
 הנחיות:
-- צור משימות קטנות וספציפיות (5-30 דקות כל אחת), ידידותיות ל-ADHD
-- כלול משימות אופייניות לניקיון פסח: בדיקת חמץ, ניקוי ארונות, מקרר, תנור, כיריים, וכו׳
-- התאם את המשימות לתיאור הספציפי של הבית
+- ארגן רק את מה שהמשתמש תיאר. אל תמציא חדרים או משימות שלא הוזכרו
+- פרק משימות גדולות למשימות קטנות וספציפיות (5-30 דקות), ידידותיות ל-ADHD
+- כאשר משימה כוללת פריטים חוזרים (מגירות, מדפים, ארונות), הוסף רשימת checklist עם הפריטים
+- checklist הוא מערך אופציונלי של מחרוזות
 - משימות חובה (required: true) הן אלו שקשורות ישירות להסרת חמץ
-- המטבח צריך את מירב המשימות
-- כל חדר צריך 3-8 משימות
 - השתמש בעברית בלבד
-- אל תוסיף חדרים שלא הוזכרו בתיאור (אלא אם מדובר בחדרים סטנדרטיים כמו מטבח)`
+- אם יש חדרים קיימים במערכת שמתאימים לתיאור, השתמש בשמות הזהים שלהם`
 
   const result = await model.generateContent(prompt)
   const response = result.response

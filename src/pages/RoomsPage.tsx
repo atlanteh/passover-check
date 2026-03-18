@@ -78,7 +78,7 @@ export default function RoomsPage() {
 
       {(showForm || editingRoom) && (
         <RoomForm
-          initial={editingRoom ? { name: editingRoom.name, icon: editingRoom.icon } : undefined}
+          initial={editingRoom ? { name: editingRoom.name, icon: editingRoom.icon, minDate: editingRoom.minDate } : undefined}
           onSubmit={editingRoom ? handleEdit : handleAdd}
           onCancel={() => { setShowForm(false); setEditingRoom(null) }}
         />

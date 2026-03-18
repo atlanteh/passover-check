@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import { useAuth } from '../context/AuthContext'
 import { useHouse } from '../context/HouseContext'
 import { useSeason } from '../context/SeasonContext'
+import { updateHouseAssignees } from '../services/houseService'
+import { useToast } from '../context/ToastContext'
 import { Link, useNavigate } from 'react-router-dom'
 import {
   LogOut, Home, Users, Calendar, Sparkles, ChevronLeft,
-  DoorOpen,
+  DoorOpen, Plus, X,
 } from 'lucide-react'
 
 export default function SettingsPage() {
@@ -12,10 +15,38 @@ export default function SettingsPage() {
   const { selectedHouse, houses } = useHouse()
   const { activeSeason } = useSeason()
   const navigate = useNavigate()
+  const { toast } = useToast()
+  const [newAssignee, setNewAssignee] = useState('')
 
   async function handleSignOut() {
     await signOut()
     navigate('/login')
+  }
+
+  async function handleAddAssignee() {
+    const name = newAssignee.trim()
+    if (!name || !selectedHouse) return
+    const current = selectedHouse.assignees ?? []
+    if (current.includes(name)) {
+      toast('השם כבר קיים', 'error')
+      return
+    }
+    try {
+      await updateHouseAssignees(selectedHouse.id, [...current, name])
+      setNewAssignee('')
+    } catch {
+      toast('שגיאה בהוספת משתתף', 'error')
+    }
+  }
+
+  async function handleRemoveAssignee(name: string) {
+    if (!selectedHouse) return
+    const current = selectedHouse.assignees ?? []
+    try {
+      await updateHouseAssignees(selectedHouse.id, current.filter((a) => a !== name))
+    } catch {
+      toast('שגיאה בהסרת משתתף', 'error')
+    }
   }
 
   return (
@@ -57,6 +88,49 @@ export default function SettingsPage() {
           <SettingsLink to="/seasons" icon={<Calendar size={18} />} label="עונות" />
           <SettingsLink to="/invite" icon={<Users size={18} />} label="הזמנת חברים" />
           <SettingsLink to="/ai" icon={<Sparkles size={18} />} label="יצירה עם AI" />
+        </div>
+      )}
+
+      {/* Assignees */}
+      {selectedHouse && (
+        <div className="bg-white rounded-xl shadow-sm p-4 space-y-3">
+          <h3 className="font-semibold flex items-center gap-2">
+            <Users size={18} className="text-on-surface-muted" />
+            משתתפים
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {(selectedHouse.assignees ?? []).map((name) => (
+              <span
+                key={name}
+                className="bg-primary-50 text-primary-700 px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1"
+              >
+                {name}
+                <button
+                  onClick={() => handleRemoveAssignee(name)}
+                  className="hover:text-danger-500"
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={newAssignee}
+              onChange={(e) => setNewAssignee(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddAssignee() } }}
+              className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-sm"
+              placeholder="הוספת שם..."
+            />
+            <button
+              onClick={handleAddAssignee}
+              disabled={!newAssignee.trim()}
+              className="bg-primary-600 text-white px-3 py-2 rounded-xl hover:bg-primary-700 disabled:opacity-50"
+            >
+              <Plus size={16} />
+            </button>
+          </div>
         </div>
       )}
 

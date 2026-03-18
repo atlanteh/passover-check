@@ -18,7 +18,7 @@ service cloud.firestore {
       return role == 'owner' || role == 'editor';
     }
 
-    // Allowed users: authenticated can read their own, no client writes (admin SDK only)
+    // Allowed users: authenticated can read, no client writes (admin SDK only)
     match /allowedUsers/{email} {
       allow read: if request.auth != null;
     }
@@ -40,11 +40,13 @@ service cloud.firestore {
       allow update: if request.auth != null && canWrite(houseId);
     }
 
-    // HouseMembers: members can read members of their house
+    // HouseMembers: list own memberships; get own or house-mates' docs
     match /houseMembers/{memberId} {
-      allow read: if request.auth != null && (
-        isMember(resource.data.houseId) ||
-        request.auth.uid == resource.data.userId
+      allow list: if request.auth != null && request.auth.uid == resource.data.userId;
+      allow get: if request.auth != null && (
+        resource == null ||
+        request.auth.uid == resource.data.userId ||
+        isMember(resource.data.houseId)
       );
       allow create: if request.auth != null && isAllowedUser();
       allow update: if request.auth != null && canWrite(resource.data.houseId);
@@ -64,11 +66,11 @@ service cloud.firestore {
       allow update: if request.auth != null && canWrite(resource.data.houseId);
     }
 
-    // Tasks: members can read, owner/editor can write
+    // Tasks: members can read, owner/editor can write/delete
     match /tasks/{taskId} {
       allow read: if request.auth != null && isMember(resource.data.houseId);
       allow create: if request.auth != null && canWrite(request.resource.data.houseId);
-      allow update: if request.auth != null && canWrite(resource.data.houseId);
+      allow update, delete: if request.auth != null && canWrite(resource.data.houseId);
     }
 
     // Invites: allowed users can read/create/update (for redeeming)

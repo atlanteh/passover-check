@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useHouse } from '../context/HouseContext'
 import { useSeason } from '../context/SeasonContext'
@@ -9,7 +9,11 @@ import { useRooms } from '../hooks/useRooms'
 import { useToast } from '../context/ToastContext'
 import AIPreviewList from '../components/ai/AIPreviewList'
 import type { AIGeneratedRoom } from '../types'
-import { Sparkles, ArrowRight, Loader2, Wand2 } from 'lucide-react'
+import { Sparkles, ArrowRight, Loader2, Wand2, Mic, MicOff } from 'lucide-react'
+
+type SpeechRecognitionEvent = Event & { results: SpeechRecognitionResultList }
+
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition
 
 type Step = 'input' | 'loading' | 'preview'
 
@@ -24,12 +28,84 @@ export default function AIWizardPage() {
   const [description, setDescription] = useState('')
   const [generated, setGenerated] = useState<AIGeneratedRoom[]>([])
   const [saving, setSaving] = useState(false)
+  const [recording, setRecording] = useState(false)
+  const [interimText, setInterimText] = useState('')
+  const recognitionRef = useRef<InstanceType<typeof SpeechRecognition> | null>(null)
+  const baseTextRef = useRef('')
+  const audioCtxRef = useRef<AudioContext | null>(null)
+
+  function playTone(freq: number, duration: number) {
+    const ctx = audioCtxRef.current ?? new AudioContext()
+    audioCtxRef.current = ctx
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.frequency.value = freq
+    gain.gain.value = 0.15
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration)
+    osc.start()
+    osc.stop(ctx.currentTime + duration)
+  }
+
+  function toggleRecording() {
+    if (recording) {
+      recognitionRef.current?.stop()
+      setRecording(false)
+      setInterimText('')
+      playTone(440, 0.15)
+      setTimeout(() => playTone(330, 0.15), 100)
+      return
+    }
+    if (!SpeechRecognition) {
+      toast('הדפדפן לא תומך בהקלטת קול', 'error')
+      return
+    }
+    baseTextRef.current = description
+    const recognition = new SpeechRecognition()
+    recognition.lang = 'he-IL'
+    recognition.interimResults = true
+    recognition.continuous = true
+    recognition.onresult = (e: SpeechRecognitionEvent) => {
+      const parts: string[] = []
+      let interim = ''
+      for (let i = 0; i < e.results.length; i++) {
+        const result = e.results[i]
+        if (!result) continue
+        const text = result[0]?.transcript || ''
+        if (result.isFinal) {
+          parts.push(text)
+        } else {
+          interim += text
+        }
+      }
+      const confirmed = baseTextRef.current
+        ? baseTextRef.current + ' ' + parts.join(' ')
+        : parts.join(' ')
+      setDescription(confirmed.trim())
+      setInterimText(interim)
+    }
+    recognition.onerror = () => {
+      setRecording(false)
+      setInterimText('')
+    }
+    recognition.onend = () => {
+      setRecording(false)
+      setInterimText('')
+    }
+    recognitionRef.current = recognition
+    recognition.start()
+    setRecording(true)
+    playTone(330, 0.15)
+    setTimeout(() => playTone(440, 0.15), 100)
+  }
 
   async function handleGenerate() {
     if (!description.trim()) return
     setStep('loading')
     try {
-      const result = await generateRoomsAndTasks(description)
+      const existingRoomNames = existingRooms.map((r) => r.name)
+      const result = await generateRoomsAndTasks(description, existingRoomNames)
       setGenerated(result)
       setStep('preview')
     } catch {
@@ -42,12 +118,19 @@ export default function AIWizardPage() {
     if (!selectedHouse || !activeSeason) return
     setSaving(true)
     try {
+      let newRoomIndex = existingRooms.length
       for (const room of generated) {
-        const roomId = await addRoom(
-          selectedHouse.id,
-          { name: room.name, icon: room.icon },
-          existingRooms.length + generated.indexOf(room)
-        )
+        const existing = existingRooms.find((r) => r.name === room.name)
+        let roomId: string
+        if (existing) {
+          roomId = existing.id
+        } else {
+          roomId = await addRoom(
+            selectedHouse.id,
+            { name: room.name, icon: room.icon },
+            newRoomIndex++
+          )
+        }
         await batchAddTasks(
           room.tasks.map((t) => ({
             houseId: selectedHouse.id,
@@ -59,6 +142,9 @@ export default function AIWizardPage() {
             priority: t.priority,
             required: t.required,
             source: 'ai' as const,
+            ...(t.checklist && t.checklist.length > 0
+              ? { checklist: t.checklist.map((label) => ({ label, done: false })) }
+              : {}),
           }))
         )
       }
@@ -96,12 +182,28 @@ export default function AIWizardPage() {
             תארו את הבית שלכם וה-AI ייצור רשימת חדרים ומשימות ניקיון לפסח
           </p>
 
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="לדוגמה: דירת 4 חדרים, מטבח גדול עם הרבה ארונות, 2 חדרי שינה, סלון, מרפסת, חדר אמבטיה ושירותים נפרדים, מחסן..."
-            className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 resize-none h-40"
-          />
+          <div className="relative">
+            <textarea
+              value={interimText ? description + (description ? ' ' : '') + interimText : description}
+              onChange={(e) => { setDescription(e.target.value); baseTextRef.current = e.target.value }}
+              readOnly={recording}
+              placeholder="לדוגמה: דירת 4 חדרים, מטבח גדול עם הרבה ארונות, 2 חדרי שינה, סלון, מרפסת, חדר אמבטיה ושירותים נפרדים, מחסן..."
+              className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3 pb-14 resize-none h-40"
+            />
+            {SpeechRecognition && (
+              <button
+                type="button"
+                onClick={toggleRecording}
+                className={`absolute bottom-3 left-3 p-2.5 rounded-full transition-colors ${
+                  recording
+                    ? 'bg-red-100 text-red-600 animate-pulse'
+                    : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                }`}
+              >
+                {recording ? <MicOff size={20} /> : <Mic size={20} />}
+              </button>
+            )}
+          </div>
 
           <button
             onClick={handleGenerate}

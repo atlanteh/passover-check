@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom'
 import Header from './Header'
 import BottomNav from './BottomNav'
+import { StaleAppWarning } from '../common/StaleAppWarning'
 
 export default function Layout() {
   return (
@@ -9,6 +10,7 @@ export default function Layout() {
       <main className="flex-1 max-w-lg mx-auto w-full px-4 py-4 pb-24">
         <Outlet />
       </main>
+      <StaleAppWarning />
       <BottomNav />
     </div>
   )

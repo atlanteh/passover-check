@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { ROOM_ICONS, ROOM_NAME_SUGGESTIONS } from '../../types'
 import type { RoomFormData } from '../../types'
+import HebrewDateLabel from '../common/HebrewDateLabel'
 
 interface RoomFormProps {
   initial?: RoomFormData
@@ -11,12 +12,13 @@ interface RoomFormProps {
 export default function RoomForm({ initial, onSubmit, onCancel }: RoomFormProps) {
   const [name, setName] = useState(initial?.name ?? '')
   const [icon, setIcon] = useState(initial?.icon ?? 'other')
+  const [minDate, setMinDate] = useState(initial?.minDate ?? '')
   const [showIconPicker, setShowIconPicker] = useState(false)
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
-    onSubmit({ name: name.trim(), icon })
+    onSubmit({ name: name.trim(), icon, minDate: minDate || undefined })
   }
 
   function handleSuggestion(suggestion: { name: string; icon: string }) {
@@ -67,6 +69,31 @@ export default function RoomForm({ initial, onSubmit, onCancel }: RoomFormProps)
                 {ROOM_ICONS[s.icon]} {s.name}
               </button>
             ))}
+          </div>
+        )}
+
+        {/* Min date */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-on-surface-muted whitespace-nowrap">לא לפני:</label>
+          <input
+            type="date"
+            value={minDate}
+            onChange={(e) => setMinDate(e.target.value)}
+            className="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm"
+          />
+          {minDate && (
+            <button
+              type="button"
+              onClick={() => setMinDate('')}
+              className="text-xs text-on-surface-muted hover:text-danger-500"
+            >
+              נקה
+            </button>
+          )}
+        </div>
+        {minDate && (
+          <div className="mr-16">
+            <HebrewDateLabel dateStr={minDate} />
           </div>
         )}
 

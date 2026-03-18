@@ -1,61 +1,71 @@
-import { useState } from 'react'
-import { completeTask, skipTask, updateTask } from '../../services/taskService'
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import { completeTask, skipTask, updateTask, updateChecklist } from '../../services/taskService'
 import { useAuth } from '../../context/AuthContext'
 import { useToast } from '../../context/ToastContext'
 import { ROOM_ICONS, PRIORITY_LABELS } from '../../types'
-import type { Task } from '../../types'
-import { CheckCircle2, Circle, SkipForward, Clock, RotateCcw } from 'lucide-react'
+import type { Task, TaskStatus } from '../../types'
+import { CheckCircle2, Circle, SkipForward, Clock, RotateCcw, CalendarRange, User } from 'lucide-react'
+import ChecklistDisplay from './ChecklistDisplay'
+import { getTaskProgress } from '../../utils/scheduling'
 
 interface TaskCardProps {
   task: Task
   roomName?: string
   roomIcon?: string
+  onMove?: () => void
 }
 
-export default function TaskCard({ task, roomName, roomIcon }: TaskCardProps) {
+export default function TaskCard({ task, roomName, roomIcon, onMove }: TaskCardProps) {
   const { user } = useAuth()
   const { toast } = useToast()
-  const [loading, setLoading] = useState(false)
+  const [optimisticStatus, setOptimisticStatus] = useState<TaskStatus | null>(null)
 
+  // Clear optimistic state when real status catches up
+  useEffect(() => {
+    setOptimisticStatus(null)
+  }, [task.status])
+
+  const displayStatus = optimisticStatus ?? task.status
   const icon = roomIcon ? (ROOM_ICONS[roomIcon] ?? '📍') : '📍'
-  const isDone = task.status === 'done'
-  const isSkipped = task.status === 'skipped'
+  const isDone = displayStatus === 'done'
+  const isSkipped = displayStatus === 'skipped'
 
   async function handleToggle() {
     if (!user) return
-    setLoading(true)
     try {
       if (isDone || isSkipped) {
+        setOptimisticStatus('pending')
         await updateTask(task.id, { status: 'pending', completedByUserId: null, completedAt: null })
       } else {
+        setOptimisticStatus('done')
         await completeTask(task.id, user.id)
         toast('משימה הושלמה! ✓', 'success')
       }
     } catch {
+      setOptimisticStatus(null)
       toast('שגיאה בעדכון', 'error')
     }
-    setLoading(false)
   }
 
   async function handleSkip() {
-    setLoading(true)
     try {
+      setOptimisticStatus('skipped')
       await skipTask(task.id)
     } catch {
+      setOptimisticStatus(null)
       toast('שגיאה בעדכון', 'error')
     }
-    setLoading(false)
   }
 
   return (
     <div
       className={`bg-white rounded-xl p-3 shadow-sm flex items-start gap-3 transition-all ${
         isDone ? 'opacity-60' : ''
-      } ${loading ? 'pointer-events-none' : ''}`}
+      }`}
     >
       <button
         onClick={handleToggle}
-        disabled={loading}
         className="mt-0.5 shrink-0"
       >
         {isDone ? (
@@ -68,33 +78,67 @@ export default function TaskCard({ task, roomName, roomIcon }: TaskCardProps) {
       </button>
 
       <div className="flex-1 min-w-0">
-        <div className={`font-medium ${isDone ? 'line-through text-on-surface-muted' : ''}`}>
-          {task.title}
-        </div>
-        <div className="flex items-center gap-2 mt-1 text-xs text-on-surface-muted">
-          <span>{icon} {roomName ?? ''}</span>
-          <span className="flex items-center gap-0.5">
-            <Clock size={11} />
-            {task.estimatedMinutes} דק׳
-          </span>
-          {task.priority !== 'medium' && (
-            <span className={task.priority === 'high' ? 'text-danger-500' : ''}>
-              {PRIORITY_LABELS[task.priority]}
+        <Link
+          to={`/tasks/${task.id}/edit`}
+          className="block w-full text-start"
+        >
+          <div className={`font-medium ${isDone ? 'line-through text-on-surface-muted' : ''}`}>
+            {task.title}
+          </div>
+          <div className="flex items-center gap-2 mt-1 text-xs text-on-surface-muted">
+            <span>{icon} {roomName ?? ''}</span>
+            <span className="flex items-center gap-0.5">
+              <Clock size={11} />
+              {task.estimatedMinutes} דק׳
             </span>
-          )}
-        </div>
+            {task.assignedTo && (
+              <span className="flex items-center gap-0.5">
+                <User size={11} />
+                {task.assignedTo}
+              </span>
+            )}
+            {task.priority !== 'medium' && (
+              <span className={task.priority === 'high' ? 'text-danger-500' : ''}>
+                {PRIORITY_LABELS[task.priority]}
+              </span>
+            )}
+            {task.checklist && task.checklist.length > 0 && (() => {
+              const p = getTaskProgress(task)
+              return <span>{p.completed}/{p.total}</span>
+            })()}
+          </div>
+        </Link>
+
+        {task.checklist && task.checklist.length > 0 && (
+          <div className="mt-2">
+            <ChecklistDisplay
+              checklist={task.checklist}
+              onChange={(updated) => updateChecklist(task.id, updated)}
+            />
+          </div>
+        )}
       </div>
 
-      {!isDone && !isSkipped && (
-        <button
-          onClick={handleSkip}
-          disabled={loading}
-          className="text-on-surface-muted hover:text-warning-600 shrink-0"
-          title="דלג"
-        >
-          <SkipForward size={16} />
-        </button>
-      )}
+      <div className="flex flex-col items-center gap-1 shrink-0">
+        {onMove && !isDone && !isSkipped && (
+          <button
+            onClick={onMove}
+            className="text-on-surface-muted hover:text-primary-600"
+            title="העבר ליום אחר"
+          >
+            <CalendarRange size={16} />
+          </button>
+        )}
+        {!isDone && !isSkipped && (
+          <button
+            onClick={handleSkip}
+            className="text-on-surface-muted hover:text-warning-600"
+            title="דלג"
+          >
+            <SkipForward size={16} />
+          </button>
+        )}
+      </div>
     </div>
   )
 }

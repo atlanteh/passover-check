@@ -1,12 +1,12 @@
 import { NavLink } from 'react-router-dom'
-import { LayoutDashboard, CalendarCheck, Target, ListTodo, Settings } from 'lucide-react'
+import { LayoutDashboard, CalendarCheck, Target, ListTodo, CalendarRange } from 'lucide-react'
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'ראשי' },
   { to: '/today', icon: CalendarCheck, label: 'היום' },
   { to: '/focus', icon: Target, label: 'מיקוד', elevated: true },
   { to: '/tasks', icon: ListTodo, label: 'משימות' },
-  { to: '/settings', icon: Settings, label: 'הגדרות' },
+  { to: '/schedule', icon: CalendarRange, label: 'לו"ז' },
 ]
 
 export default function BottomNav() {

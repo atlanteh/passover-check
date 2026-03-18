@@ -35,3 +35,11 @@ export async function updateHouse(houseId: string, data: Partial<HouseFormData>)
     updatedAt: serverTimestamp(),
   })
 }
+
+export async function updateHouseAssignees(houseId: string, assignees: string[]) {
+  const houseRef = doc(db, 'houses', houseId)
+  await updateDoc(houseRef, {
+    assignees,
+    updatedAt: serverTimestamp(),
+  })
+}

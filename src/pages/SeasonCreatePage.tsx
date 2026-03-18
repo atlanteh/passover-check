@@ -4,6 +4,7 @@ import { useHouse } from '../context/HouseContext'
 import { createSeason } from '../services/seasonService'
 import { useToast } from '../context/ToastContext'
 import { ArrowRight, Loader2 } from 'lucide-react'
+import HebrewDateLabel from '../components/common/HebrewDateLabel'
 
 export default function SeasonCreatePage() {
   const navigate = useNavigate()
@@ -70,7 +71,8 @@ export default function SeasonCreatePage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">תאריך יעד (ליל הסדר)</label>
+          <label className="block text-sm font-medium mb-1">תאריך ליל הסדר</label>
+          <p className="text-xs text-on-surface-muted mb-1">הניקיון יתוכנן להסתיים יומיים לפני</p>
           <input
             type="date"
             value={targetDate}
@@ -78,6 +80,7 @@ export default function SeasonCreatePage() {
             className="w-full bg-white border border-gray-200 rounded-xl px-4 py-3"
             required
           />
+          {targetDate && <HebrewDateLabel dateStr={targetDate} />}
         </div>
 
         <button

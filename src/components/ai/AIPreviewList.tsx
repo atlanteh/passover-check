@@ -52,6 +52,9 @@ export default function AIPreviewList({ rooms, onChange }: AIPreviewListProps) {
                       </span>
                       <span>{PRIORITY_LABELS[task.priority]}</span>
                       {task.required && <span className="text-primary-600">חובה</span>}
+                      {task.checklist && task.checklist.length > 0 && (
+                        <span className="text-primary-500">{task.checklist.length} פריטים</span>
+                      )}
                     </div>
                   </div>
                   <button

@@ -1,9 +1,13 @@
 import type { Task, Season, DashboardStats } from '../types'
-import { startOfDay, differenceInDays } from './date'
+import { startOfDay, addDays, differenceInDays } from './date'
+import { getTaskProgress } from './scheduling'
+
+/** Finish cleaning 2 days before Passover eve */
+const FINISH_DAYS_BEFORE = 2
 
 export function calculateDashboardStats(tasks: Task[], season: Season): DashboardStats {
   const today = startOfDay(new Date())
-  const targetDate = startOfDay(season.targetDate.toDate())
+  const targetDate = addDays(startOfDay(season.targetDate.toDate()), -FINISH_DAYS_BEFORE)
   const daysRemaining = Math.max(0, differenceInDays(targetDate, today))
 
   const totalTasks = tasks.length
@@ -14,13 +18,23 @@ export function calculateDashboardStats(tasks: Task[], season: Season): Dashboar
   ).length
 
   const totalMinutes = tasks.reduce((sum, t) => sum + t.estimatedMinutes, 0)
-  const completedMinutes = tasks
-    .filter((t) => t.status === 'done' || t.status === 'skipped')
-    .reduce((sum, t) => sum + t.estimatedMinutes, 0)
+
+  // Factor in checklist progress for partial completion
+  let completedMinutes = 0
+  for (const task of tasks) {
+    if (task.status === 'done' || task.status === 'skipped') {
+      completedMinutes += task.estimatedMinutes
+    } else {
+      const progress = getTaskProgress(task)
+      if (progress.total > 1) {
+        completedMinutes += Math.round(task.estimatedMinutes * (progress.percent / 100))
+      }
+    }
+  }
   const pendingMinutes = totalMinutes - completedMinutes
 
   const percentComplete =
-    totalTasks === 0 ? 0 : Math.round(((completedTasks + skippedTasks) / totalTasks) * 100)
+    totalMinutes === 0 ? 0 : Math.round((completedMinutes / totalMinutes) * 100)
 
   const dailyTargetMinutes =
     daysRemaining > 0 ? Math.ceil(pendingMinutes / daysRemaining) : pendingMinutes

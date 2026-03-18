@@ -4,6 +4,7 @@ import { updateSeasonStatus } from '../services/seasonService'
 import { useToast } from '../context/ToastContext'
 import { Plus, Calendar, CheckCircle2, Archive, Loader2 } from 'lucide-react'
 import { SEASON_STATUS_LABELS } from '../types'
+import { formatHebrewDateShort } from '../utils/date'
 
 export default function SeasonsPage() {
   const { seasons, loading } = useSeason()
@@ -66,8 +67,11 @@ export default function SeasonsPage() {
                     {SEASON_STATUS_LABELS[season.status]}
                   </span>
                 </div>
-                <p className="text-sm text-on-surface-muted mb-3">
+                <p className="text-sm text-on-surface-muted">
                   יעד: {targetDate.toLocaleDateString('he-IL')} · {season.year}
+                </p>
+                <p className="text-xs text-on-surface-muted mb-3">
+                  {formatHebrewDateShort(targetDate)}
                 </p>
                 {season.status === 'active' && (
                   <div className="flex gap-2">

@@ -20,6 +20,7 @@ export async function addRoom(
     icon: data.icon,
     order,
     isActive: true,
+    minDate: data.minDate || null,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
@@ -27,8 +28,10 @@ export async function addRoom(
 }
 
 export async function updateRoom(roomId: string, data: Partial<RoomFormData>) {
+  const { minDate, ...rest } = data
   await updateDoc(doc(db, 'rooms', roomId), {
-    ...data,
+    ...rest,
+    minDate: minDate || null,
     updatedAt: serverTimestamp(),
   })
 }

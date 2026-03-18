@@ -1,5 +1,5 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { collection, query, where, onSnapshot, doc, getDoc } from 'firebase/firestore'
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore'
 import { db } from '../config/firebase'
 import { useAuth } from './AuthContext'
 import type { House, HouseMember } from '../types'
@@ -26,6 +26,9 @@ export function HouseProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   // Listen to memberships
+  const retryCount = useRef(0)
+  const houseUnsubs = useRef<(() => void)[]>([])
+
   useEffect(() => {
     if (!user) {
       setMemberships([])
@@ -34,39 +37,81 @@ export function HouseProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    const q = query(
-      collection(db, 'houseMembers'),
-      where('userId', '==', user.id)
-    )
+    let unsubscribe: (() => void) | undefined
+    let retryTimer: ReturnType<typeof setTimeout> | undefined
 
-    const unsubscribe = onSnapshot(q, async (snapshot) => {
-      const mems = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as HouseMember)
-      setMemberships(mems)
+    function subscribe() {
+      const q = query(
+        collection(db, 'houseMembers'),
+        where('userId', '==', user!.id)
+      )
 
-      // Fetch house docs
-      const housePromises = mems.map(async (m) => {
-        const houseSnap = await getDoc(doc(db, 'houses', m.houseId))
-        if (houseSnap.exists()) {
-          return { id: houseSnap.id, ...houseSnap.data() } as House
+      unsubscribe = onSnapshot(q, (snapshot) => {
+        retryCount.current = 0
+        const mems = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }) as HouseMember)
+        setMemberships(mems)
+
+        // Tear down previous house listeners
+        houseUnsubs.current.forEach((unsub) => unsub())
+        houseUnsubs.current = []
+
+        // Set up real-time listeners for each house doc
+        const houseMap = new Map<string, House>()
+        let initialCount = 0
+
+        if (mems.length === 0) {
+          setHouses([])
+          setLoading(false)
+          return
         }
-        return null
+
+        for (const m of mems) {
+          const unsub = onSnapshot(doc(db, 'houses', m.houseId), (houseSnap) => {
+            if (houseSnap.exists()) {
+              const house = { id: houseSnap.id, ...houseSnap.data() } as House
+              if (!house.isArchived) {
+                houseMap.set(house.id, house)
+              } else {
+                houseMap.delete(house.id)
+              }
+            } else {
+              houseMap.delete(m.houseId)
+            }
+
+            const validHouses = Array.from(houseMap.values())
+            setHouses(validHouses)
+
+            // Auto-select on initial load
+            initialCount++
+            if (initialCount === mems.length) {
+              if (!selectedHouseId && validHouses.length > 0) {
+                const firstId = validHouses[0]!.id
+                setSelectedHouseId(firstId)
+                localStorage.setItem(SELECTED_HOUSE_KEY, firstId)
+              }
+              setLoading(false)
+            }
+          })
+          houseUnsubs.current.push(unsub)
+        }
+      }, (error) => {
+        console.error('houseMembers snapshot error:', error)
+        setLoading(false)
+        if (retryCount.current < 5) {
+          retryCount.current++
+          retryTimer = setTimeout(subscribe, 3000)
+        }
       })
+    }
 
-      const houseResults = await Promise.all(housePromises)
-      const validHouses = houseResults.filter((h): h is House => h !== null && !h.isArchived)
-      setHouses(validHouses)
+    subscribe()
 
-      // Auto-select first house if none selected
-      if (!selectedHouseId && validHouses.length > 0) {
-        const firstId = validHouses[0]!.id
-        setSelectedHouseId(firstId)
-        localStorage.setItem(SELECTED_HOUSE_KEY, firstId)
-      }
-
-      setLoading(false)
-    })
-
-    return unsubscribe
+    return () => {
+      unsubscribe?.()
+      houseUnsubs.current.forEach((unsub) => unsub())
+      houseUnsubs.current = []
+      clearTimeout(retryTimer)
+    }
   }, [user, selectedHouseId])
 
   const selectedHouse = houses.find((h) => h.id === selectedHouseId) ?? null

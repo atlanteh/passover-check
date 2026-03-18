@@ -9,14 +9,14 @@ initializeApp()
 const db = getFirestore('passover')
 
 export const passoverGenerateTasks = onCall(
-  { region: 'europe-west1', memory: '512MiB' },
+  { region: 'europe-west1', memory: '512MiB', invoker: 'public' },
   async (request) => {
     // Auth check
     if (!request.auth) {
       throw new HttpsError('unauthenticated', 'Must be logged in')
     }
 
-    const { description } = request.data as { description?: string }
+    const { description, existingRooms } = request.data as { description?: string; existingRooms?: string[] }
     if (!description || typeof description !== 'string' || description.trim().length < 10) {
       throw new HttpsError('invalid-argument', 'Description must be at least 10 characters')
     }
@@ -33,7 +33,7 @@ export const passoverGenerateTasks = onCall(
     }
 
     try {
-      const rooms = await generateTasksFromDescription(description.trim())
+      const rooms = await generateTasksFromDescription(description.trim(), existingRooms)
       return { rooms }
     } catch (error) {
       console.error('AI generation error:', error)

@@ -17,8 +17,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-dvh flex flex-col items-center justify-center px-6 bg-gradient-to-b from-primary-50 to-white">
       <div className="animate-bounce-in text-center">
-        <div className="text-7xl mb-4">✡️</div>
-        <h1 className="text-4xl font-extrabold text-primary-700 mb-2">פסח צ׳ק</h1>
+        <img src="/logo.png" alt="פסח צ׳ק" className="w-48 h-48 mx-auto mb-4 object-contain" />
         <p className="text-on-surface-muted text-lg mb-8">
           מתכננים את הניקיונות לפסח בקלות
         </p>
