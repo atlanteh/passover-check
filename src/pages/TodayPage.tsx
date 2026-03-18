@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useSeason } from '../context/SeasonContext'
 import { useTasks } from '../hooks/useTasks'
@@ -6,7 +6,7 @@ import { useRooms } from '../hooks/useRooms'
 import { useHouse } from '../context/HouseContext'
 import { toDateString, startOfDay, formatDate, formatHebrewDateShort, isBeforeToday } from '../utils/date'
 import TaskCard from '../components/task/TaskCard'
-import { Calendar, CheckCircle2, Loader2, CalendarRange, AlertTriangle } from 'lucide-react'
+import { Calendar, CheckCircle2, Loader2, CalendarRange, AlertTriangle, Filter } from 'lucide-react'
 
 export default function TodayPage() {
   const { selectedHouse } = useHouse()
@@ -14,10 +14,24 @@ export default function TodayPage() {
   const { tasks, loading } = useTasks(activeSeason?.id, selectedHouse?.id)
   const { rooms } = useRooms(selectedHouse?.id)
 
+  const [filterAssignee, setFilterAssignee] = useState<string>(() => sessionStorage.getItem('today-filter-assignee') ?? 'all')
+
+  function handleFilterAssignee(value: string) {
+    setFilterAssignee(value)
+    sessionStorage.setItem('today-filter-assignee', value)
+  }
+
   const todayStr = toDateString(startOfDay(new Date()))
 
   const { todayTasks, hasAnyScheduled, overdueCount, totalMinutes } = useMemo(() => {
-    const scheduled = tasks.filter((t) => t.scheduledDate === todayStr)
+    let scheduled = tasks.filter((t) => t.scheduledDate === todayStr)
+    if (filterAssignee !== 'all') {
+      if (filterAssignee === '_unassigned') {
+        scheduled = scheduled.filter((t) => !t.assignedTo)
+      } else {
+        scheduled = scheduled.filter((t) => t.assignedTo === filterAssignee)
+      }
+    }
     const anyScheduled = tasks.some((t) => t.scheduledDate)
     const overdue = tasks.filter(
       (t) =>
@@ -31,7 +45,7 @@ export default function TodayPage() {
       overdueCount: overdue,
       totalMinutes: scheduled.reduce((sum, t) => sum + t.estimatedMinutes, 0),
     }
-  }, [tasks, todayStr])
+  }, [tasks, todayStr, filterAssignee])
 
   const completedToday = todayTasks.filter((t) => t.status === 'done').length
 
@@ -61,6 +75,23 @@ export default function TodayPage() {
           <p className="text-xs text-on-surface-muted">{formatHebrewDateShort(new Date())}</p>
         </div>
       </div>
+
+      {selectedHouse?.assignees && selectedHouse.assignees.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Filter size={14} className="text-on-surface-muted" />
+          <select
+            value={filterAssignee}
+            onChange={(e) => handleFilterAssignee(e.target.value)}
+            className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm flex-1"
+          >
+            <option value="all">כולם</option>
+            <option value="_unassigned">ללא משויך</option>
+            {selectedHouse.assignees.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {overdueCount > 0 && (
         <Link

@@ -13,7 +13,7 @@ import DayPickerModal from '../components/schedule/DayPickerModal'
 import OverdueBanner from '../components/schedule/OverdueBanner'
 import ScheduleDayCard from '../components/schedule/ScheduleDayCard'
 import UnassignedSection from '../components/schedule/UnassignedSection'
-import { CalendarRange, Loader2 } from 'lucide-react'
+import { CalendarRange, Loader2, Filter } from 'lucide-react'
 
 const FINISH_DAYS_BEFORE = 2
 
@@ -26,7 +26,19 @@ export default function SchedulePage() {
 
   const [movingTaskId, setMovingTaskId] = useState<string | null>(null)
   const [autoAssigning, setAutoAssigning] = useState(false)
+  const [filterAssignee, setFilterAssignee] = useState<string>(() => sessionStorage.getItem('schedule-filter-assignee') ?? 'all')
   const todayRef = useRef<HTMLDivElement>(null)
+
+  function handleFilterAssignee(value: string) {
+    setFilterAssignee(value)
+    sessionStorage.setItem('schedule-filter-assignee', value)
+  }
+
+  function filterByAssignee<T extends { assignedTo?: string }>(items: T[]): T[] {
+    if (filterAssignee === 'all') return items
+    if (filterAssignee === '_unassigned') return items.filter((t) => !t.assignedTo)
+    return items.filter((t) => t.assignedTo === filterAssignee)
+  }
 
   const todayStr = toDateString(startOfDay(new Date()))
 
@@ -193,6 +205,23 @@ export default function SchedulePage() {
         <h2 className="text-xl font-bold">לו״ז</h2>
       </div>
 
+      {selectedHouse?.assignees && selectedHouse.assignees.length > 0 && (
+        <div className="flex items-center gap-2">
+          <Filter size={14} className="text-on-surface-muted" />
+          <select
+            value={filterAssignee}
+            onChange={(e) => handleFilterAssignee(e.target.value)}
+            className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm flex-1"
+          >
+            <option value="all">כולם</option>
+            <option value="_unassigned">ללא משויך</option>
+            {selectedHouse.assignees.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <OverdueBanner
         count={overdueTasks.length}
         onMoveToToday={handleMoveAllToToday}
@@ -201,7 +230,7 @@ export default function SchedulePage() {
 
       <div className="space-y-4">
         {dateRange.map((dateStr) => {
-          const dayTasks = tasksByDate.get(dateStr) ?? []
+          const dayTasks = filterByAssignee(tasksByDate.get(dateStr) ?? [])
           if (dayTasks.length === 0 && dateStr !== todayStr) return null
           return (
             <div key={dateStr} ref={dateStr === todayStr ? todayRef : undefined}>
@@ -218,7 +247,7 @@ export default function SchedulePage() {
       </div>
 
       <UnassignedSection
-        tasks={unassignedTasks}
+        tasks={filterByAssignee(unassignedTasks)}
         rooms={rooms}
         onMoveTask={handleMoveTask}
         onAutoAssign={handleAutoAssign}

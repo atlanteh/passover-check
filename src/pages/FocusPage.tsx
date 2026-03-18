@@ -8,7 +8,7 @@ import { toDateString, startOfDay } from '../utils/date'
 import { completeTask, skipTask } from '../services/taskService'
 import { useAuth } from '../context/AuthContext'
 import { useToast } from '../context/ToastContext'
-import { Target, CheckCircle2, SkipForward, Loader2, PartyPopper, CalendarRange } from 'lucide-react'
+import { Target, CheckCircle2, SkipForward, Loader2, PartyPopper, CalendarRange, Filter } from 'lucide-react'
 import { ROOM_ICONS, PRIORITY_LABELS } from '../types'
 
 export default function FocusPage() {
@@ -20,17 +20,30 @@ export default function FocusPage() {
   const { toast } = useToast()
   const [completing, setCompleting] = useState(false)
   const [justCompleted, setJustCompleted] = useState(false)
+  const [filterAssignee, setFilterAssignee] = useState<string>(() => sessionStorage.getItem('focus-filter-assignee') ?? 'all')
+
+  function handleFilterAssignee(value: string) {
+    setFilterAssignee(value)
+    sessionStorage.setItem('focus-filter-assignee', value)
+  }
 
   const todayStr = toDateString(startOfDay(new Date()))
 
   const { pendingTasks, hasAnyScheduled } = useMemo(() => {
-    const todayTasks = tasks.filter((t) => t.scheduledDate === todayStr)
+    let todayTasks = tasks.filter((t) => t.scheduledDate === todayStr)
+    if (filterAssignee !== 'all') {
+      if (filterAssignee === '_unassigned') {
+        todayTasks = todayTasks.filter((t) => !t.assignedTo)
+      } else {
+        todayTasks = todayTasks.filter((t) => t.assignedTo === filterAssignee)
+      }
+    }
     const pending = todayTasks.filter(
       (t) => t.status === 'pending' || t.status === 'in_progress'
     )
     const anyScheduled = tasks.some((t) => t.scheduledDate)
     return { pendingTasks: pending, hasAnyScheduled: anyScheduled }
-  }, [tasks, todayStr])
+  }, [tasks, todayStr, filterAssignee])
 
   if (loading) {
     return (
@@ -121,9 +134,26 @@ export default function FocusPage() {
     <div className="flex flex-col items-center py-8 animate-scale-in">
       <Target size={32} className="text-primary-600 mb-2" />
       <h2 className="text-lg font-bold text-primary-700 mb-1">מצב מיקוד</h2>
-      <p className="text-sm text-on-surface-muted mb-8">
+      <p className="text-sm text-on-surface-muted mb-4">
         {pendingTasks.length} משימות נותרו להיום
       </p>
+
+      {selectedHouse?.assignees && selectedHouse.assignees.length > 0 && (
+        <div className="flex items-center gap-2 w-full mb-4">
+          <Filter size={14} className="text-on-surface-muted" />
+          <select
+            value={filterAssignee}
+            onChange={(e) => handleFilterAssignee(e.target.value)}
+            className="bg-white border border-gray-200 rounded-lg px-3 py-1.5 text-sm flex-1"
+          >
+            <option value="all">כולם</option>
+            <option value="_unassigned">ללא משויך</option>
+            {selectedHouse.assignees.map((name) => (
+              <option key={name} value={name}>{name}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Task card */}
       <div className="w-full bg-white rounded-2xl shadow-md p-6 space-y-4">
